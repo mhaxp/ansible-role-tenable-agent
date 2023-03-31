@@ -1,6 +1,6 @@
 ---
 name: CI
-'on':
+"on":
   pull_request:
   push:
     branches:
@@ -10,18 +10,37 @@ name: CI
 
 defaults:
   run:
-    working-directory: 'ansible-role-tenable-agent'
+    working-directory: "ansible-role-tenable-agent"
 
 jobs:
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Check out the codebase.
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.5.0
         with:
-          path: 'ansible-role-tenable-agent'
+          path: "ansible-role-tenable-agent"
+
+      - name: 🚀 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pipenv"
+
+      - name: ⏬ Install OS dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
+
+      - name: ⏬ Install pipenv and dependencies
+        run: |
+          python -m pip install --upgrade pipenv wheel
+          pipenv install
+
+      - name: 🏃 Lint / Python
+        run: pipenv run flake8 *.py --ignore=E501,W503
+
+      - name: 🏃 Lint / Markdown
+        run: pipenv run pymarkdownlnt --disable-rules MD013 scan .
 
   molecule:
     name: Molecule
@@ -30,37 +49,36 @@ jobs:
     strategy:
       matrix:
         include:
-          - distro: centos8
-            playbook: converge-rpm.yml
-          - distro: centos7
-            playbook: converge-rpm.yml
-          - distro: ubuntu2004
-            playbook: converge-apt.yml
-          - distro: ubuntu1804
-            playbook: converge-apt.yml
-          - distro: debian10
-            playbook: converge-apt.yml
-          - distro: debian9
-            playbook: converge-apt.yml
+          - distro: ubuntu-18.04
+          - distro: ubuntu-20.04
+          - distro: ubuntu-22.04
+          - distro: debian-10
+          - distro: debian-11
 
     steps:
-      - name: Check out the codebase.
-        uses: actions/checkout@v2
+      - name: 🔽 Checkout
+        uses: actions/checkout@v3.5.0
         with:
-          path: 'ansible-role-tenable-agent'
+          path: "ansible-role-tenable-agent"
 
-      - name: Set up Python 3.
-        uses: actions/setup-python@v2
+      - name: 🚀 Setup Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: "3.11"
+          cache: "pipenv"
 
-      - name: Install test dependencies.
-        run: pip3 install yamllint ansible-lint ansible molecule[docker] docker
+      - name: ⏬ Install OS dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev
 
-      - name: Run Molecule tests.
-        run: molecule test
+      - name: ⏬Install pipenv and dependencies
+        run: |
+          python -m pip install --upgrade pipenv wheel
+          pipenv install
+
+      - name: 🏃 Run Molecule tests.
+        run: pipenv run molecule test
         env:
-          PY_COLORS: '1'
-          ANSIBLE_FORCE_COLOR: '1'
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
           MOLECULE_DISTRO: ${{ matrix.distro }}
-          MOLECULE_PLAYBOOK: ${{ matrix.playbook }}
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
